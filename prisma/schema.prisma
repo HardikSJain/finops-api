@@ -12,3 +12,98 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum AssetClass {
+  CASH
+  EQUITY
+  MF
+  ETF
+  DEBT
+  GOLD
+  CRYPTO
+  EPF
+  NPS
+  OTHER
+}
+
+enum TxType {
+  BUY
+  SELL
+  DIVIDEND
+  INTEREST
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  FEE
+  TAX
+  SALARY
+  EXPENSE
+}
+
+model Account {
+  id          String   @id @default(uuid())
+  name        String
+  institution String?
+  accountType String?
+  currency    String   @default("INR")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  transactions Transaction[]
+
+  @@map("accounts")
+}
+
+model Asset {
+  id         String     @id @default(uuid())
+  symbol     String?
+  name       String
+  assetClass AssetClass
+  currency   String     @default("INR")
+  metadata   Json       @default("{}")
+  createdAt  DateTime   @default(now())
+
+  transactions Transaction[]
+  prices       AssetPrice[]
+
+  @@unique([symbol, currency])
+  @@map("assets")
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  txDate      DateTime @db.Date
+  accountId   String
+  assetId     String?
+  txType      TxType
+  quantity    Decimal? @db.Decimal(20, 8)
+  price       Decimal? @db.Decimal(20, 8)
+  amount      Decimal  @db.Decimal(20, 2)
+  fees        Decimal  @default(0) @db.Decimal(20, 2)
+  taxes       Decimal  @default(0) @db.Decimal(20, 2)
+  notes       String?
+  externalRef String?  @unique
+  source      String   @default("manual")
+  raw         Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
+  asset   Asset?  @relation(fields: [assetId], references: [id])
+
+  @@index([accountId, txDate])
+  @@index([assetId, txDate])
+  @@map("transactions")
+}
+
+model AssetPrice {
+  assetId    String
+  priceDate  DateTime @db.Date
+  closePrice Decimal  @db.Decimal(20, 8)
+  source     String   @default("manual")
+  createdAt  DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@id([assetId, priceDate])
+  @@map("asset_prices")
+}
